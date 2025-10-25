@@ -92,13 +92,6 @@ def load_question_bank(xlsx_path="Zoology_Terms_Bilingual.xlsx"):
 loaded = load_question_bank()
 QUESTION_BANK = loaded["bank"]
 
-# debug 區（會在畫面上顯示目前抓到的欄位跟筆數，方便你檢查）
-with st.expander("📂 題庫偵測狀態（老師看得到就好，學生可以不用管）"):
-    st.write("Excel 欄位 =", loaded["debug_cols"])
-    st.write("成功載入幾筆題目 =", len(QUESTION_BANK))
-    if not loaded["ok"]:
-        st.error(loaded["error"])
-
 # 如果真的沒載到，就直接停
 if not loaded["ok"] or not QUESTION_BANK:
     st.warning("⚠ 題庫是空的，請把 Excel 欄名改成能被辨識（例如 Name / English）再重新整理。")
