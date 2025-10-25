@@ -599,9 +599,6 @@ def render_mode_select_page():
         key="mode_pick_for_start"
     )
 
-    st.session_state.user_name = st.text_input(
-        "姓名", st.session_state.get("user_name", "")
-    )
     st.session_state.user_class = st.text_input(
         "班級", st.session_state.get("user_class", "")
     )
