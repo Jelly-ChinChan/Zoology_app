@@ -215,18 +215,34 @@ def get_options_for_q(qidx, mode_label):
 st.markdown("""
 <style>
 
-/* ===== 1. 隱藏主畫面頂部預設列，但保留 sidebar ===== */
-header[data-testid="stHeader"],
+/* =========================
+   (A) 保留 sidebar 原生外觀與功能
+   ========================= */
+
+/* 重要：不要再動 sidebar！
+   所以這裡「明確排除」任何 sidebar 相關 selector
+   我們也不要隱藏 stSidebarHeader/stSidebarContent 之類的東西
+   這樣模式切換、姓名輸入、重新開始按鈕全部保持 Streamlit 預設行為
+*/
+
+
+/* =========================
+   (B) 隱藏主畫面上方黑列 / ToolBar / Footer / 浮動按鈕
+   但：不要影響 sidebar
+   ========================= */
+
+/* 隱藏主畫面頂端標題列（Fork / Streamlit 標頭）*/
+header[data-testid="stHeader"] {
+    display: none !important;
+}
+
+/* 隱藏雲端部署工具列 (有時在 header 外層另外一條 toolbar) */
 div[data-testid="stToolbar"] {
     display: none !important;
 }
 
-/* 不要隱藏 sidebar header，因為我們要讓切換模式那邊還是好操作 */
-/* section[data-testid="stSidebarHeader"] {
-    display: none !important;
-} */
-
-/* ===== 2. 隱藏 footer / 浮動小按鈕 / 版權徽章 ===== */
+/* 隱藏頁面底部版權 / footer / "Made with Streamlit" / Cloud 浮動按鈕
+   注意：這些 selector 都不是 sidebar 專用的，安全 */
 footer,
 div[role="contentinfo"],
 div[data-testid="stStatusWidget"],
@@ -235,37 +251,38 @@ div[class*="stActionButtonIcon"],
 div[class*="stDeployButton"],
 div[data-testid="stDecoration"],
 div[data-testid="stMainMenu"],
-div[class*="stFloatingActionButton"] {
-    display: none !important;
-}
-a[class^="css-"][href*="streamlit.io"] {
-    display: none !important;
-}
+div[class*="stFloatingActionButton"],
+a[class^="css-"][href*="streamlit.io"],
 button[kind="header"] {
     display: none !important;
 }
 
-/* ===== 3. 最硬核的「貼頂」：把所有上方容器的 padding / margin 全部歸零 ===== */
 
-/* 最外層容器 */
+/* =========================
+   (C) 最硬核貼頂：把主內容區(不是sidebar)的上邊距/內距全部歸零
+   我們一層一層打下去，但明確鎖定「主畫面容器」，不碰 sidebar
+   ========================= */
+
+/* 最外層主視圖容器 */
 div[data-testid="stAppViewContainer"] {
     padding-top: 0 !important;
     margin-top: 0 !important;
 }
 
-/* 包住主要內容的那層 block container */
+/* 主畫面 block 容器（非 sidebar）*/
 div[data-testid="stAppViewBlockContainer"] {
     padding-top: 0 !important;
     margin-top: 0 !important;
 }
 
-/* 主要頁面 <main> */
+/* 主要內容 <main>。把任何預設往下推的空白拿掉 */
 main.block-container {
     padding-top: 0 !important;
     margin-top: 0 !important;
 }
 
-/* block-container class 本身（某些版本 main.block-container 之外還有同名 div） */
+/* block-container 本身（有些版本 main 外還有一層同名 div）
+   這裡我們維持左右寬度跟底部padding，但不給 top padding */
 .block-container {
     padding-top: 0 !important;
     margin-top: 0 !important;
@@ -273,25 +290,31 @@ main.block-container {
     max-width: 1000px;
 }
 
-/* Streamlit 會用一層 "VerticalBlock" 當第一個 row，通常它也會推下來，我們也清掉 */
+/* Streamlit 會用 verticalBlock 做第一行內容的 wrapper
+   我們也把它的上間距硬清掉，避免第一個元件(你的進度條卡片)被往下推 */
 div[data-testid="stVerticalBlock"] {
     padding-top: 0 !important;
     margin-top: 0 !important;
 }
 
-/* 第一個 child block（有時候第一塊會再多一層 wrapper，照殺）*/
+/* 第一個 child block，很多時候它本身還是會帶 margin-top，我們也歸零 */
 div[data-testid="stVerticalBlock"] > div:first-child {
     padding-top: 0 !important;
     margin-top: 0 !important;
 }
 
-/* 我們自己的進度卡片 */
+/* 你的進度條卡片本體 */
 .progress-card {
     margin-top: 0 !important;
     margin-bottom: 0.22rem !important;
 }
 
-/* ===== 4. 其餘視覺樣式：手機友善字體 / 按鈕 / 回饋區塊 ===== */
+
+/* =========================
+   (D) 其他視覺優化（字體、radio間距、按鈕、feedback）
+   這些會套在主畫面，也會套進 sidebar，
+   但它們是無害的排版強化，不會把 sidebar 藏起來
+   ========================= */
 
 html, body, [class*="css"]  { 
     font-size: 22px !important;
@@ -303,15 +326,17 @@ h2 {
     margin-bottom: 0.22em !important;
 }
 
-/* 單選題區塊壓緊 */
-.stRadio { 
+/* 單選題區塊靠緊上面標題 */
+.stRadio {
     margin-top: 0 !important;
 }
+
+/* 把 radio 之前那塊奇怪的空白也刪掉 */
 div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stRadio"]) {
     margin-top: 0 !important;
 }
 
-/* 主按鈕（送出答案 / 下一題） */
+/* 主按鈕（送出答案 / 下一題 / 重新開始） */
 .stButton>button{
     height: 44px;
     padding: 0 18px;
@@ -320,7 +345,7 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stRadio"]) {
     border: 1px solid rgba(0,0,0,0.2);
 }
 
-/* 回答正確/錯誤的小框 */
+/* ✅ / ❌ 回饋小框 */
 .feedback-small {
     font-size: 17px !important;
     line-height: 1.4;
@@ -343,7 +368,7 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stRadio"]) {
     font-weight: 700;
 }
 
-/* 模式三的輸入框放大 */
+/* 模式三輸入框長得像行動裝置輸入欄 */
 .text-input-big input {
     font-size: 24px !important;
     height: 3em !important;
@@ -353,7 +378,6 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stRadio"]) {
 
 </style>
 """, unsafe_allow_html=True)
-
 
 
 # ===================== UI: 進度卡 =====================
