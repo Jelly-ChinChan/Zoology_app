@@ -215,64 +215,95 @@ def get_options_for_q(qidx, mode_label):
 st.markdown("""
 <style>
 
-/* ===== 1. 隱藏預設 UI 元素，包含頂部列、工具列、sidebar header ===== */
+/* ===== 1. 隱藏主畫面頂部預設列，但保留 sidebar ===== */
 header[data-testid="stHeader"],
-div[data-testid="stToolbar"],
-section[data-testid="stSidebarHeader"] {
+div[data-testid="stToolbar"] {
     display: none !important;
 }
 
-/* ===== 2. 隱藏 footer / Streamlit 版權 / 底部浮動工具按鈕 ===== */
+/* 不要隱藏 sidebar header，因為我們要讓切換模式那邊還是好操作 */
+/* section[data-testid="stSidebarHeader"] {
+    display: none !important;
+} */
+
+/* ===== 2. 隱藏 footer / 浮動小按鈕 / 版權徽章 ===== */
 footer,
+div[role="contentinfo"],
 div[data-testid="stStatusWidget"],
-a[class^="css-"][href*="streamlit.io"],
 div[class*="viewerBadge_container"],
 div[class*="stActionButtonIcon"],
 div[class*="stDeployButton"],
 div[data-testid="stDecoration"],
-div[data-testid="stMainMenu"] {
-    display: none !important;
-}
-
-/* 有些環境 footer 不是 footer tag，而是放在最後一個 .block-container 後面一個區塊 */
-div[role="contentinfo"] {
-    display: none !important;
-}
-
-/* Streamlit Cloud 右下角常駐的 deployment / share / rerun 小浮動按鈕群 */
+div[data-testid="stMainMenu"],
 div[class*="stFloatingActionButton"] {
+    display: none !important;
+}
+a[class^="css-"][href*="streamlit.io"] {
     display: none !important;
 }
 button[kind="header"] {
     display: none !important;
 }
 
-/* ===== 3. 讓內容真的貼滿最上方，沒有任何空白 ===== */
+/* ===== 3. 最硬核的「貼頂」：把所有上方容器的 padding / margin 全部歸零 ===== */
+
+/* 最外層容器 */
+div[data-testid="stAppViewContainer"] {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+
+/* 包住主要內容的那層 block container */
+div[data-testid="stAppViewBlockContainer"] {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+
+/* 主要頁面 <main> */
 main.block-container {
     padding-top: 0 !important;
     margin-top: 0 !important;
 }
+
+/* block-container class 本身（某些版本 main.block-container 之外還有同名 div） */
 .block-container {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
     padding-bottom: 0.9rem !important;
     max-width: 1000px;
 }
 
-/* 進度卡片本身也不能被往下推 */
+/* Streamlit 會用一層 "VerticalBlock" 當第一個 row，通常它也會推下來，我們也清掉 */
+div[data-testid="stVerticalBlock"] {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+
+/* 第一個 child block（有時候第一塊會再多一層 wrapper，照殺）*/
+div[data-testid="stVerticalBlock"] > div:first-child {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+
+/* 我們自己的進度卡片 */
 .progress-card {
     margin-top: 0 !important;
     margin-bottom: 0.22rem !important;
 }
 
-/* ===== 4. 字級、元件外觀，讓手機可讀性高 ===== */
+/* ===== 4. 其餘視覺樣式：手機友善字體 / 按鈕 / 回饋區塊 ===== */
+
 html, body, [class*="css"]  { 
     font-size: 22px !important;
 }
+
 h2 {
     font-size: 26px !important;
     margin-top: 0.22em !important;
     margin-bottom: 0.22em !important;
 }
 
+/* 單選題區塊壓緊 */
 .stRadio { 
     margin-top: 0 !important;
 }
@@ -280,6 +311,7 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stRadio"]) {
     margin-top: 0 !important;
 }
 
+/* 主按鈕（送出答案 / 下一題） */
 .stButton>button{
     height: 44px;
     padding: 0 18px;
@@ -288,6 +320,7 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stRadio"]) {
     border: 1px solid rgba(0,0,0,0.2);
 }
 
+/* 回答正確/錯誤的小框 */
 .feedback-small {
     font-size: 17px !important;
     line-height: 1.4;
@@ -310,6 +343,7 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stRadio"]) {
     font-weight: 700;
 }
 
+/* 模式三的輸入框放大 */
 .text-input-big input {
     font-size: 24px !important;
     height: 3em !important;
