@@ -10,41 +10,100 @@ st.set_page_config(
     layout="centered"
 )
 
-# ===================== 題庫載入 =====================
+# ===================== 題庫載入（新版，容錯版） =====================
 @st.cache_data
 def load_question_bank(xlsx_path="Zoology_Terms_Bilingual.xlsx"):
     """
-    需要一個 Excel 檔，至少有兩欄：
-    - Name     (中文名稱)
-    - English  (英文術語)
+    嘗試讀取 Excel 並自動對應「中文名欄」與「英文名欄」.
+    支援常見欄位名稱（不分大小寫、會strip空白）：
+      中文欄候選: Name, 中文, 名稱, Chinese, CN
+      英文欄候選: English, 英文, Term, 英文名, EN
     """
     try:
         df = pd.read_excel(xlsx_path)
     except Exception as e:
-        st.error(f"無法讀取題庫檔案 {xlsx_path} ：{e}")
-        return []
+        return {
+            "ok": False,
+            "error": f"無法讀取題庫檔案 {xlsx_path} ：{e}",
+            "bank": [],
+            "debug_cols": []
+        }
 
+    # 先把欄名整理成乾淨的小寫字串方便比對
+    def norm(s):
+        return str(s).strip().lower()
+
+    cols_norm = {norm(c): c for c in df.columns}  # "name" -> 原本"Name "之類
+
+    # 我們接受的候選名稱
+    cn_candidates = ["name", "中文", "名稱", "chinese", "cn"]
+    en_candidates = ["english", "英文", "term", "英文名", "en", "english term"]
+
+    # 找出真正的欄名
+    cn_col = None
+    en_col = None
+    for cand in cn_candidates:
+        if cand in cols_norm:
+            cn_col = cols_norm[cand]
+            break
+    for cand in en_candidates:
+        if cand in cols_norm:
+            en_col = cols_norm[cand]
+            break
+
+    if cn_col is None or en_col is None:
+        # 找不到的話就回報錯誤 + 把目前欄位丟回去做debug
+        return {
+            "ok": False,
+            "error": (
+                "找不到必要欄位。\n"
+                f"目前檔案欄位是：{list(df.columns)}\n"
+                f"我在找的中文欄候選：{cn_candidates}\n"
+                f"我在找的英文欄候選：{en_candidates}\n"
+                "請把你的 Excel 其中兩個欄名改成上面其中一個就好，例如：Name / English。"
+            ),
+            "bank": [],
+            "debug_cols": list(df.columns)
+        }
+
+    # 真的有兩欄就開始清洗
     def clean(x):
         if pd.isna(x):
             return ""
         return str(x).strip()
 
-    bank = []
+    bank_list = []
     for _, row in df.iterrows():
-        cn = clean(row.get("Name", ""))
-        en = clean(row.get("English", ""))
-        if cn and en:
-            bank.append({
-                "name": cn,       # 中文名稱
-                "english": en,    # 英文術語
+        cn_val = clean(row.get(cn_col, ""))
+        en_val = clean(row.get(en_col, ""))
+        if cn_val and en_val:
+            bank_list.append({
+                "name": cn_val,      # 中文名稱
+                "english": en_val,   # 英文術語
             })
-    return bank
 
-QUESTION_BANK = load_question_bank()
+    return {
+        "ok": True,
+        "error": "",
+        "bank": bank_list,
+        "debug_cols": list(df.columns)
+    }
 
-if not QUESTION_BANK:
-    st.warning("⚠ 題庫是空的，請確認 Excel 檔是否存在且有欄位 Name / English。")
+loaded = load_question_bank()
+QUESTION_BANK = loaded["bank"]
+
+# debug 區（會在畫面上顯示目前抓到的欄位跟筆數，方便你檢查）
+with st.expander("📂 題庫偵測狀態（老師看得到就好，學生可以不用管）"):
+    st.write("Excel 欄位 =", loaded["debug_cols"])
+    st.write("成功載入幾筆題目 =", len(QUESTION_BANK))
+    if not loaded["ok"]:
+        st.error(loaded["error"])
+
+# 如果真的沒載到，就直接停
+if not loaded["ok"] or not QUESTION_BANK:
+    st.warning("⚠ 題庫是空的，請把 Excel 欄名改成能被辨識（例如 Name / English）再重新整理。")
     st.stop()
+
 
 # ===================== 常數 / 模式名稱 =====================
 MAX_ROUNDS = 3
@@ -58,7 +117,7 @@ ALL_MODES = [MODE_1, MODE_2, MODE_3]
 
 # ===================== 工具函式 =====================
 def head_tail_hint(word: str):
-    """英文提示：顯示首字母...尾字母"""
+    """英文提示：顯示首字母…尾字母"""
     w = word.strip()
     if len(w) <= 2:
         return w
@@ -86,14 +145,12 @@ def start_new_round():
         i for i, it in enumerate(QUESTION_BANK)
         if it["english"] not in st.session_state.used_pairs
     ]
-    # 如果都用過了，就重置 used_pairs
     if len(available) == 0:
         st.session_state.used_pairs = set()
         available = list(range(len(QUESTION_BANK)))
 
-    # 隨機抽題
     if len(available) <= QUESTIONS_PER_ROUND:
-        chosen = available[:]  # 全部拿來
+        chosen = available[:]
         random.shuffle(chosen)
     else:
         chosen = random.sample(available, QUESTIONS_PER_ROUND)
@@ -107,7 +164,7 @@ def start_new_round():
     st.session_state.options_cache = {}
 
 def ensure_state_ready():
-    """確保所有必要的 session_state key 都存在"""
+    """確保所有必要的 session_state key 都存在，否則初始化+抽題"""
     needed_keys = [
         "mode", "round", "used_pairs", "cur_round_qidx", "cur_idx_in_round",
         "records", "score_this_round", "submitted", "last_feedback",
@@ -116,23 +173,12 @@ def ensure_state_ready():
     if any(k not in st.session_state for k in needed_keys):
         init_state()
         start_new_round()
-    # 如果 round 有值但這回合題庫是空的，也要抽
     if st.session_state.round and not st.session_state.cur_round_qidx:
         start_new_round()
 
 ensure_state_ready()
 
 def get_options_for_q(qidx, mode_label):
-    """
-    mode1: 題幹=中文name，選項=英文english（正確英文 + 干擾英文）
-    mode2: 題幹=英文english，選項=中文name（正確中文 + 干擾中文）
-    mode3: 文字輸入，不需要選項
-    回傳:
-      {
-        "display": [...兩個選項顯示用字串...],
-        "value":   [...同上副本...]
-      }
-    """
     key = (qidx, mode_label)
     if key in st.session_state.options_cache:
         return st.session_state.options_cache[key]
@@ -333,19 +379,19 @@ def handle_action(qidx, q, user_input):
 
     ui_type, data, payload = user_input
 
-    # 先判斷學生的答案
+    # 判斷學生的答案
     if mode_label in (MODE_1, MODE_2):
-        chosen_disp = data  # st.radio 回傳的文字
+        chosen_disp = data
         if chosen_disp is None:
             st.warning("請先選擇一個選項。")
             return
 
         if mode_label == MODE_1:
-            # 中文 -> 英文：正解是 correct_eng
+            # 中文 -> 英文
             is_correct = (chosen_disp.strip().lower() == correct_eng.lower())
             chosen_label = chosen_disp.strip()
         else:
-            # 英文 -> 中文：正解是 correct_name
+            # 英文 -> 中文
             is_correct = (chosen_disp.strip() == correct_name)
             chosen_label = chosen_disp.strip()
 
@@ -359,45 +405,38 @@ def handle_action(qidx, q, user_input):
     if not st.session_state.submitted:
         st.session_state.submitted = True
 
-        # 記錄一筆
         st.session_state.records.append((
-            st.session_state.round,        # round
-            (q["name"] if mode_label != MODE_2 else q["english"]),  # prompt
-            chosen_label,                  # 學生填的或選的
-            correct_eng,                   # 正解英文
-            correct_name,                  # 正解中文
-            is_correct,                    # 是否正確
+            st.session_state.round,
+            (q["name"] if mode_label != MODE_2 else q["english"]),
+            chosen_label,
+            correct_eng,
+            correct_name,
+            is_correct,
             (payload["display"] if (payload and "display" in payload) else None)
         ))
 
-        # 回饋訊息
         if is_correct:
             st.session_state.last_feedback = (
                 "<div class='feedback-small feedback-correct'>✅ 回答正確</div>"
             )
             st.session_state.score_this_round += 1
         else:
-            # 錯誤訊息（雙語格式）
             if mode_label == MODE_1:
-                # 中文→英文
                 st.session_state.last_feedback = (
                     f"<div class='feedback-small feedback-wrong'>❌ Incorrect. 正確答案："
                     f"{correct_eng} ({correct_name})</div>"
                 )
             elif mode_label == MODE_2:
-                # 英文→中文
                 st.session_state.last_feedback = (
                     f"<div class='feedback-small feedback-wrong'>❌ Incorrect. 正確答案："
                     f"{correct_name} ({correct_eng})</div>"
                 )
             else:
-                # 模式三
                 st.session_state.last_feedback = (
                     f"<div class='feedback-small feedback-wrong'>❌ Incorrect. 正確答案："
                     f"{correct_eng} ({correct_name})</div>"
                 )
 
-        # 把目前輸入的英文存起來，讓學生可以看到自己剛剛打什麼
         if mode_label == MODE_3:
             st.session_state.answer_cache = chosen_label
 
@@ -406,16 +445,13 @@ def handle_action(qidx, q, user_input):
 
     # 第二次按（下一題）
     else:
-        # 把這題的英文單字記到 used_pairs，減少重複
         st.session_state.used_pairs.add(correct_eng)
 
-        # 前進下一題
         st.session_state.cur_idx_in_round += 1
         st.session_state.submitted = False
         st.session_state.last_feedback = ""
         st.session_state.answer_cache = ""
 
-        # 回合是否結束？
         if st.session_state.cur_idx_in_round >= len(st.session_state.cur_round_qidx):
             full_score = (
                 st.session_state.score_this_round
@@ -424,11 +460,9 @@ def handle_action(qidx, q, user_input):
             has_more_rounds = (st.session_state.round < MAX_ROUNDS)
 
             if full_score and has_more_rounds:
-                # 全對而且還沒玩到最後一回合 -> 進入下一回合
                 st.session_state.round += 1
                 start_new_round()
             else:
-                # 否則進入總結畫面
                 st.session_state.round = None
 
         st.rerun()
@@ -447,11 +481,6 @@ with st.sidebar:
         "座號", st.session_state.get("user_seat", "")
     )
 
-    # 允許換模式的條件：
-    #   - 第一回合
-    #   - 目前是本回合的第0題
-    #   - 還沒按過送出答案
-    #   - 沒有任何作答記錄
     can_change_mode = (
         st.session_state.round == 1 and
         st.session_state.cur_idx_in_round == 0 and
@@ -459,7 +488,6 @@ with st.sidebar:
         len(st.session_state.records) == 0
     )
 
-    # 顯示模式選擇（之後會鎖住）
     current_mode_index = ALL_MODES.index(st.session_state.mode)
     chosen_mode = st.radio(
         "選擇練習模式",
@@ -467,12 +495,9 @@ with st.sidebar:
         index=current_mode_index,
         disabled=not can_change_mode,
     )
-
-    # 如果還能換，就把 mode 改成使用者剛選的
     if can_change_mode:
         st.session_state.mode = chosen_mode
 
-    # 重新開始整個遊戲
     if st.button("🔄 重新開始"):
         init_state()
         start_new_round()
@@ -480,46 +505,36 @@ with st.sidebar:
 
 # ===================== 主畫面 =====================
 if st.session_state.round:
-    # 進行中的回合畫面
     render_top_card()
     qidx, q, user_input = render_question()
 
-    # 如果已經送出答案，顯示 ✅/❌ 的那一塊
     if st.session_state.submitted and st.session_state.last_feedback:
         st.markdown(st.session_state.last_feedback, unsafe_allow_html=True)
 
-    # 主按鈕：在沒交前叫「送出答案」，交完叫「下一題」
     action_label = "下一題" if st.session_state.submitted else "送出答案"
     if st.button(action_label, key="action_btn"):
         handle_action(qidx, q, user_input)
 
-    # 題目提交後的雙語複習區
     if st.session_state.submitted and st.session_state.records:
         last = st.session_state.records[-1]
-        # last = (round, prompt, chosen_label, correct_eng, correct_name, is_correct, options_disp)
         _, _, _, correct_eng, correct_name, _, opts_disp = last
         mode_now = st.session_state.mode
 
         st.markdown("---")
 
-        # 標題文字依模式調整
         if mode_now == MODE_1:
-            # 中文→英文
             st.markdown(
                 f"**正確英文術語：{correct_eng}（{correct_name}）**"
             )
         elif mode_now == MODE_2:
-            # 英文→中文
             st.markdown(
                 f"**正確中文名稱：{correct_name}（{correct_eng}）**"
             )
         else:
-            # 模式三
             st.markdown(
                 f"**正確英文術語：{correct_eng}（{correct_name}）**"
             )
 
-        # 如果是選擇題，下面列出「本題兩個選項」並雙語對照
         if opts_disp:
             st.markdown("**本題兩個選項：**")
             bipairs = []
@@ -534,20 +549,17 @@ if st.session_state.round:
                 if match_pair:
                     n, e = match_pair
                     if mode_now == MODE_1:
-                        # 顯示 英文(中文)
                         bipairs.append(f"{e}（{n}）")
                     elif mode_now == MODE_2:
-                        # 顯示 中文(英文)
                         bipairs.append(f"{n}（{e}）")
                     else:
                         bipairs.append(f"{e}（{n}）")
                 else:
                     bipairs.append(opt.strip())
-
             st.markdown("、".join(bipairs))
 
 else:
-    # ===================== 總結畫面 =====================
+    # 總結畫面
     total_answered = len(st.session_state.records)
     total_correct = sum(1 for rec in st.session_state.records if rec[5])
     acc = (total_correct / total_answered * 100) if total_answered else 0.0
