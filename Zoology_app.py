@@ -230,9 +230,9 @@ if not loaded["ok"] or not QUESTION_BANK:
 MAX_ROUNDS = 3
 QUESTIONS_PER_ROUND = 10
 
-MODE_1 = "模式一：中文 ➜ 英文（二選一）"
-MODE_2 = "模式二：英文 ➜ 中文（二選一）"
-MODE_3 = "模式三：中文 ➜ 英文（手寫輸入＋提示）"
+MODE_1 = "模式一：中文 ➜ 英文"
+MODE_2 = "模式二：英文 ➜ 中文"
+MODE_3 = "模式三：中文 ➜ 手寫英文"
 
 ALL_MODES = [MODE_1, MODE_2, MODE_3]
 
