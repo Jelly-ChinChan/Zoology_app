@@ -215,57 +215,45 @@ def get_options_for_q(qidx, mode_label):
 st.markdown("""
 <style>
 
-/* ====== 1. 移除 Streamlit 頂部那條黑/灰工具列、右上角的Menu ====== */
-header[data-testid="stHeader"] {
-    display: none !important;
-}
-div[data-testid="stToolbar"] {
+/* ===== 隱藏 Streamlit 頂部欄位、讓內容貼頂 ===== */
+header[data-testid="stHeader"],
+div[data-testid="stToolbar"],
+section[data-testid="stSidebarHeader"] {
     display: none !important;
 }
 
-/* 有些部署環境(Cloud)會把主內容往下推，這邊把上邊距歸零 */
+/* ===== 移除上方所有 padding/margin，進度條貼頂 ===== */
 main.block-container {
-    padding-top: 0rem !important;
+    padding-top: 0 !important;
+    margin-top: 0 !important;
 }
 
-/* ====== 2. 全域字級 / 版面壓緊 ====== */
-html, body, [class*="css"]  { 
-    font-size: 22px !important;
+/* ===== 進度條卡片本身也取消上間距 ===== */
+.progress-card {
+    margin-top: 0 !important;
+    margin-bottom: 0.22rem !important;
 }
 
+/* ===== 一般樣式保持 ===== */
+html, body, [class*="css"]  { font-size: 22px !important; }
 h2 {
     font-size: 26px !important;
     margin-top: 0.22em !important;
     margin-bottom: 0.22em !important;
 }
-
-/* 主要容器：上邊距我們已經在 main.block-container 改成0
-   下面這段仍可保留左右寬度 & 下邊距設定 */
 .block-container {
     padding-bottom: 0.9rem !important;
     max-width: 1000px;
 }
-
-/* 3. 進度卡 / radio / 按鈕 / 回饋樣式 ====== */
-.progress-card { 
-    margin-bottom: 0.22rem !important;
-}
-
-.stRadio { 
-    margin-top: 0 !important;
-}
-
-/* 把 radio 上方多出來的空行也壓掉 */
+.stRadio { margin-top: 0 !important; }
 div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stRadio"]) {
     margin-top: 0 !important;
 }
-
-.stButton>button{
+.stButton>button {
     height: 44px;
     padding: 0 18px;
     font-size: 20px;
 }
-
 .feedback-small {
     font-size: 17px !important;
     line-height: 1.4;
@@ -275,22 +263,18 @@ div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stRadio"]) {
     border-radius: 4px;
     border: 2px solid transparent;
 }
-
 .feedback-correct {
     color: #1a7f37;
     border-color: #1a7f37;
     background-color: #e8f5e9;
     font-weight: 700;
 }
-
 .feedback-wrong {
     color: #c62828;
     border-color: #c62828;
     background-color: #ffebee;
     font-weight: 700;
 }
-
-/* 輸入框放大（模式三） */
 .text-input-big input {
     font-size: 24px !important;
     height: 3em !important;
